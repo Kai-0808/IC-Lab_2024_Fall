@@ -1,5 +1,5 @@
 
-`define CYCLE_TIME 9.0
+`define CYCLE_TIME 20.0
 `define SEED_NUMBER 38524879
 `define PATTERN_NUMBER 100
 `define DEBUG_MODE 1 // This will generate a "process.txt" file for debugging
