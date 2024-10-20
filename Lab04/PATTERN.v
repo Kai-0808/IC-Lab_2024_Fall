@@ -1,23 +1,4 @@
-//############################################################################
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//   (C) Copyright Laboratory System Integration and Silicon Implementation
-//   All Right Reserved
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//
-//   ICLAB 2023 Fall
-//   Lab04 Exercise		: Convolution Neural Network 
-//   Author     		: Yu-Chi Lin (a6121461214.st12@nycu.edu.tw)
-//
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//
-//   File Name   : CNN.v
-//   Module Name : CNN
-//   Release version : V1.0 (Release Date: 2024-10)
-//
-//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-//############################################################################
-
-`define CYCLE_TIME 30.0
+`define CYCLE_TIME 50.0
 `define SEED_NUMBER 28825252
 `define PATTERN_NUMBER 1000
 
