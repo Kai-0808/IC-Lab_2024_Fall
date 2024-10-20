@@ -1,3 +1,3 @@
-# ICLab2024
+# IC Lab 2024 Fall
 
 IC Lab PATTERN
