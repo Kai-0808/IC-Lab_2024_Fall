@@ -1,4 +1,4 @@
-`define CYCLE_TIME 10.8
+`define CYCLE_TIME 20.0
 `define SEED_NUMBER 84028402
 `define PATTERN_NUMBER 1000
 
