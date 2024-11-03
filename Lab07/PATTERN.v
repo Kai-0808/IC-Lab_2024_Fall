@@ -208,7 +208,7 @@ task check_task;
       end
       $display("");
     end
-    $display("  Yours:");
+    $display("\n  Yours:");
     for(i = 0; i < 5; i = i + 1) begin
       for(j = 0; j < 6; j = j + 1) begin
         for(k = 0; k < 5; k = k + 1) begin
