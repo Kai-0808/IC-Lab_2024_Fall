@@ -200,6 +200,7 @@ task ans_gen_task;
   end
   if(`DEBUG_MODE) begin
     f = $fopen("golden_process.txt", "w");
+    $fdisplay(f, "Pattern No. %4d\n", pat_count);
     $fdisplay(f, "Sequence Length: %4d\n", seq_len);
     $fdisplay(f, "Input Sequence:");
     $fwrite(f, "    ");
@@ -259,6 +260,7 @@ task ans_gen_task;
     print_array(f, seq_len, seq_len, score);
     $fdisplay(f, "Output:");
     print_array(f, seq_len, 8, golden_out);
+    $fclose(f);
   end
 endtask
 
