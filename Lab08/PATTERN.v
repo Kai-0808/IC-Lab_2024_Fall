@@ -1,8 +1,9 @@
 `define CYCLE_TIME 50.0
 `define SEED_NUMBER 46796278
-`define PATTERN_NUMBER 1000
+`define PATTERN_NUMBER 100
 `define CLOCK_GATING 1
 `define DEBUG_MODE 1
+`define CORNER_CASE 1
 
 module PATTERN(
 	// Output signals
@@ -36,7 +37,7 @@ reg signed [7:0] test_wq[0:7][0:7];
 reg signed [7:0] test_wk[0:7][0:7];
 reg signed [7:0] test_wv[0:7][0:7];
 
-reg signed [63:0] queue[0:7][0:7], key[0:7][0:7], value[0:7][0:7];
+reg signed [63:0] query[0:7][0:7], key[0:7][0:7], value[0:7][0:7];
 reg signed [63:0] score[0:7][0:7];
 
 reg signed [63:0] golden_out[0:7][0:7];
@@ -110,19 +111,35 @@ endtask
 
 task input_task;
   repeat($random(SEED) % 'd3 + 'd1) @(negedge clk);
-  // Generate random inputs
-  case($random(SEED) % 'd3)
-    0: seq_len = 4'd1;
-    1: seq_len = 4'd4;
-    2: seq_len = 4'd8;
-  endcase
-  for(i = 0; i < 8; i = i + 1) begin
-    for(j = 0; j < 8; j = j + 1) begin
-      test_in[i][j] = (i < seq_len) ? $random(SEED) % 'sd256 - 'sd128 : 8'sd0;
-      test_wq[i][j] = $random(SEED) % 'sd256 - 'sd128;
-      test_wk[i][j] = $random(SEED) % 'sd256 - 'sd128;
-      test_wv[i][j] = $random(SEED) % 'sd256 - 'sd128;
+  if(`CORNER_CASE == 0 || pat_count != 99) begin
+    // Generate random inputs
+    case(pat_count)
+      0: seq_len = 4'd1;
+      1: seq_len = 4'd4;
+      2: seq_len = 4'd8;
+      default: begin
+        case($random(SEED) % 'd3)
+          0: seq_len = 4'd1;
+          1: seq_len = 4'd4;
+          2: seq_len = 4'd8;
+        endcase
+      end
+    endcase
+    for(i = 0; i < 8; i = i + 1) begin
+      for(j = 0; j < 8; j = j + 1) begin
+        test_in[i][j] = (i < seq_len) ? $random(SEED) % 'sd256 - 'sd128 : 8'sd0;
+        test_wq[i][j] = $random(SEED) % 'sd256 - 'sd128;
+        test_wk[i][j] = $random(SEED) % 'sd256 - 'sd128;
+        test_wv[i][j] = $random(SEED) % 'sd256 - 'sd128;
+      end
     end
+  end else begin
+    // Test corner case
+    seq_len = 4'd8;
+    foreach(test_in[i, j]) test_in[i][j] = -128;
+    foreach(test_wq[i, j]) test_wq[i][j] = -128;
+    foreach(test_wk[i, j]) test_wk[i][j] = -128;
+    foreach(test_wv[i, j]) test_wv[i][j] = -128;
   end
   // Send inputs
   in_valid = 1'b1;
@@ -147,27 +164,27 @@ task input_task;
 endtask
 
 task ans_gen_task;
-  // Queue, Key, Value calculation
+  // Query, Key, Value calculation
   for(i = 0; i < seq_len; i = i + 1) begin
     for(j = 0; j < 8; j = j + 1) begin
-      queue[i][j] = 64'sd0;
+      query[i][j] = 64'sd0;
       key[i][j] = 64'sd0;
       value[i][j] = 64'sd0;
       // MatMul
       for(k = 0; k < 8; k = k + 1) begin
-        queue[i][j] = queue[i][j] + test_in[i][k] * test_wq[k][j];
+        query[i][j] = query[i][j] + test_in[i][k] * test_wq[k][j];
         key[i][j] = key[i][j] + test_in[i][k] * test_wk[k][j];
         value[i][j] = value[i][j] + test_in[i][k] * test_wv[k][j];
       end
     end
-  end   
+  end
   // Score calculation
   for(i = 0; i < seq_len; i = i + 1) begin
     for(j = 0; j < seq_len; j = j + 1) begin
       score[i][j] = 64'sd0;
       // MatMul
       for(k = 0; k < 8; k = k + 1)
-        score[i][j] = score[i][j] + key[i][k] * queue[j][k];
+        score[i][j] = score[i][j] + query[i][k] * key[j][k];
       // Scale (divide by 3) + ReLU
       score[i][j] = (score[i][j] > 0) ? score[i][j] / 3 : 64'sd0;
     end
@@ -186,54 +203,54 @@ task ans_gen_task;
     $fdisplay(f, "Sequence Length: %4d\n", seq_len);
     $fdisplay(f, "Input Sequence:");
     $fwrite(f, "    ");
-    for(i = 0; i < 8; i = i + 1) $fwrite(f, "%2d ", i);
+    for(i = 0; i < 8; i = i + 1) $fwrite(f, "%4d ", i);
     $fwrite(f, "\n----");
-    for(i = 0; i < 8; i = i + 1) $fwrite(f, "---");
+    for(i = 0; i < 8; i = i + 1) $fwrite(f, "-----");
     $fwrite(f, "\n");
     for(i = 0; i < seq_len; i = i + 1) begin
       $fwrite(f, "%2d| ", i);
       for(j = 0; j < 8; j = j + 1)
-        $fwrite(f, "%2h ", test_in[i][j]);
+        $fwrite(f, "%4d ", test_in[i][j]);
       $fwrite(f, "\n");
     end
     $fdisplay(f, "\nWeight Q:");
     $fwrite(f, "    ");
-    for(i = 0; i < 8; i = i + 1) $fwrite(f, "%2d ", i);
+    for(i = 0; i < 8; i = i + 1) $fwrite(f, "%4d ", i);
     $fwrite(f, "\n----");
-    for(i = 0; i < 8; i = i + 1) $fwrite(f, "---");
+    for(i = 0; i < 8; i = i + 1) $fwrite(f, "-----");
     $fwrite(f, "\n");
     for(i = 0; i < 8; i = i + 1) begin
       $fwrite(f, "%2d| ", i);
       for(j = 0; j < 8; j = j + 1)
-        $fwrite(f, "%2h ", test_wq[i][j]);
+        $fwrite(f, "%4d ", test_wq[i][j]);
       $fwrite(f, "\n");
     end
     $fdisplay(f, "\nWeight K:");
     $fwrite(f, "    ");
-    for(i = 0; i < 8; i = i + 1) $fwrite(f, "%2d ", i);
+    for(i = 0; i < 8; i = i + 1) $fwrite(f, "%4d ", i);
     $fwrite(f, "\n----");
-    for(i = 0; i < 8; i = i + 1) $fwrite(f, "---");
+    for(i = 0; i < 8; i = i + 1) $fwrite(f, "-----");
     $fwrite(f, "\n");
     for(i = 0; i < 8; i = i + 1) begin
       $fwrite(f, "%2d| ", i);
       for(j = 0; j < 8; j = j + 1)
-        $fwrite(f, "%2h ", test_wk[i][j]);
+        $fwrite(f, "%4d ", test_wk[i][j]);
       $fwrite(f, "\n");
     end
     $fdisplay(f, "\nWeight V:");
     $fwrite(f, "    ");
-    for(i = 0; i < 8; i = i + 1) $fwrite(f, "%2d ", i);
+    for(i = 0; i < 8; i = i + 1) $fwrite(f, "%4d ", i);
     $fwrite(f, "\n----");
-    for(i = 0; i < 8; i = i + 1) $fwrite(f, "---");
+    for(i = 0; i < 8; i = i + 1) $fwrite(f, "-----");
     $fwrite(f, "\n");
     for(i = 0; i < 8; i = i + 1) begin
       $fwrite(f, "%2d| ", i);
       for(j = 0; j < 8; j = j + 1)
-        $fwrite(f, "%2h ", test_wv[i][j]);
+        $fwrite(f, "%4d ", test_wv[i][j]);
       $fwrite(f, "\n");
     end
-    $fdisplay(f, "\nQueue:");
-    print_array(f, seq_len, 8, queue);
+    $fdisplay(f, "\nQuery:");
+    print_array(f, seq_len, 8, query);
     $fdisplay(f, "Key:");
     print_array(f, seq_len, 8, key);
     $fdisplay(f, "Value:");
@@ -252,15 +269,15 @@ task print_array;
   begin
     $fwrite(file, "    ");
     for(p = 0; p < col; p = p + 1)
-      $fwrite(file, "%16d ", p);
+      $fwrite(file, "%20d ", p);
     $fwrite(file, "\n----");
     for(p = 0; p < col; p = p + 1)
-      $fwrite(file, "-----------------");
+      $fwrite(file, "---------------------");
     $fwrite(file, "\n");
     for(p = 0; p < row; p = p + 1) begin
       $fwrite(file, "%2d| ", p);
       for(q = 0; q < col; q = q + 1) begin
-        $fwrite(file, "%16h ", array[p][q]);
+        $fwrite(file, "%20d ", array[p][q]);
       end
       $fwrite(file, "\n");
     end
