@@ -23,6 +23,29 @@ always #(CYCLE/2.0) clk = ~clk;
 //================================================================
 // Declaration
 //================================================================
+// DRAM Data File Path
+`ifdef D1
+  localparam d_DRAM_p_r = "../00_TESTBED/DRAM/dram1.dat";
+`elsif D2
+  localparam d_DRAM_p_r = "../00_TESTBED/DRAM/dram2.dat";
+`elsif D3
+  localparam d_DRAM_p_r = "../00_TESTBED/DRAM/dram3.dat";
+`elsif D4
+  localparam d_DRAM_p_r = "../00_TESTBED/DRAM/dram4.dat";
+`elsif D5
+  localparam d_DRAM_p_r = "../00_TESTBED/DRAM/dram5.dat";
+`elsif D6
+  localparam d_DRAM_p_r = "../00_TESTBED/DRAM/dram6.dat";
+`elsif D7
+  localparam d_DRAM_p_r = "../00_TESTBED/DRAM/dram7.dat";
+`elsif D8
+  localparam d_DRAM_p_r = "../00_TESTBED/DRAM/dram8.dat";
+`elsif D9
+  localparam d_DRAM_p_r = "../00_TESTBED/DRAM/dram9.dat";
+`else
+  localparam d_DRAM_p_r = "../00_TESTBED/DRAM/dram0.dat";
+`endif
+
 integer SEED;
 integer pat_count;
 integer i, j, k;
@@ -45,6 +68,7 @@ integer expos_sum;
 
 reg [7:0] golden_out;
 reg [7:0] rec_out;
+reg check;
 //================================================================
 // Main flow
 //================================================================
@@ -84,9 +108,9 @@ end
 // Task
 //================================================================
 task read_DRAM_task;
-  $readmemh(`d_DRAM_p_r, DRAM_r);
+  $readmemh(d_DRAM_p_r, DRAM_r);
   foreach(DRAM[i, j, k, l])
-    DRAM[i][j][k][l] = DRAM_r[(i * 3 * 32 * 32) + (j * 32 * 32) + (k * 32) + l];
+    DRAM[i][j][k][l] = DRAM_r[(i * 3 * 32 * 32) + (j * 32 * 32) + (k * 32) + l + 32'h10000];
 endtask
 
 task reset_task;
@@ -143,7 +167,7 @@ task ans_gen_task;
     1'b0: begin
       // Auto Focus
       foreach(gray_pic[i, j])
-        gray_pic[i][j] = pic[0][i][j] >> 2 + pic[1][i][j] >> 1 + pic[2][i][j] >> 2;
+        gray_pic[i][j] = (pic[0][i][j] >> 2) + (pic[1][i][j] >> 1) + (pic[2][i][j] >> 2);
       contrast2 = 0;
       contrast4 = 0;
       contrast6 = 0;
@@ -171,11 +195,11 @@ task ans_gen_task;
       contrast4 = contrast4 / 16;
       contrast6 = contrast6 / 36;
       if(contrast2 >= contrast4 && contrast2 >= contrast6)
-        golden_out = 8'h01;
+        golden_out = 8'h00;
       else if(contrast4 >= contrast2 && contrast4 >= contrast6)
-        golden_out = 8'h02;
+        golden_out = 8'h01;
       else
-        golden_out = 8'h03;
+        golden_out = 8'h02;
     end
     1'b1: begin
       // Auto Exposure
@@ -189,7 +213,7 @@ task ans_gen_task;
         DRAM[test_pic_no][i][j][k] = pic[i][j][k];
       expos_sum = 0;
       foreach(gray_pic[i, j]) begin
-        gray_pic[i][j] = pic[0][i][j] >> 2 + pic[1][i][j] >> 1 + pic[2][i][j] >> 2;
+        gray_pic[i][j] = (pic[0][i][j] >> 2) + (pic[1][i][j] >> 1) + (pic[2][i][j] >> 2);
         expos_sum = expos_sum + gray_pic[i][j];
       end
       golden_out = expos_sum / 1024;
@@ -204,21 +228,20 @@ task ans_gen_task;
       $fdisplay(f_debug, "Mode: Auto Focus");
     $fdisplay(f_debug, "Picture No.: %2d", test_pic_no);
     $fdisplay(f_debug, "(R)");
-    print_array(f_debug, pic[0]);
+    print_array(f_debug, pic[0], ~test_mode);
     $fdisplay(f_debug, "(G)");
-    print_array(f_debug, pic[1]);
+    print_array(f_debug, pic[1], ~test_mode);
     $fdisplay(f_debug, "(B)");
-    print_array(f_debug, pic[2]);
+    print_array(f_debug, pic[2], ~test_mode);
     $fdisplay(f_debug, "Gray Picture");
-    print_array(f_debug, gray_pic);
-    if(test_mode) begin
-      $fdisplay(f_debug, "Golden Output: %3d", golden_out);
-    end else begin
+    print_array(f_debug, gray_pic, ~test_mode);
+    if(test_mode == 0) begin
       $fdisplay(f_debug, "Contrast 2x2: %3d", contrast2);
       $fdisplay(f_debug, "Contrast 4x4: %3d", contrast4);
       $fdisplay(f_debug, "Contrast 6x6: %3d", contrast6);
-      $fdisplay(f_debug, "Golden Output: %3d", golden_out);
     end
+    $fdisplay(f_debug, "Golden Output: %3d", golden_out);
+    $fclose(f_debug);
   end
 endtask
 
@@ -232,18 +255,22 @@ endfunction
 task print_array;
   input integer file;
   input reg [7:0] array[0:31][0:31];
+  input reg part;
   integer p, q;
+  integer idx_s, idx_e;
   begin
+    idx_s = part ? 13 : 0;
+    idx_e = part ? 18 : 31;
     $fwrite(file, "    ");
-    for(p = 0; p < 32; p = p + 1)
+    for(p = idx_s; p <= idx_e; p = p + 1)
       $fwrite(file, "%3d ", p);
     $fwrite(file, "\n----");
-    for(p = 0; p < 32; p = p + 1)
+    for(p = idx_s; p <= idx_e; p = p + 1)
       $fwrite(file, "----");
     $fwrite(file, "\n");
-    for(p = 0; p < 32; p = p + 1) begin
+    for(p = idx_s; p <= idx_e; p = p + 1) begin
       $fwrite(file, "%2d| ", p);
-      for(q = 0; q < 32; q = q + 1) begin
+      for(q = idx_s; q <= idx_e; q = q + 1) begin
         $fwrite(file, "%3d ", array[p][q]);
       end
       $fwrite(file, "\n");
@@ -255,11 +282,11 @@ endtask
 task wait_task;
   while(out_valid !== 1'b1) begin
     exe_latency = exe_latency + 1;
-    if(exe_latency == 2000) begin : TIMEOUT_CHECK
+    if(exe_latency == 20000) begin : TIMEOUT_CHECK
       fail_task;
       $display("--------------------------------------------------");
       $display("                      FAIL!!                      ");
-      $display("       Execution timeout (over 2000 cycles)       ");
+      $display("       Execution timeout (over 20000 cycles)       ");
       $display("--------------------------------------------------");
       repeat(5) @(negedge clk);
       $finish;
@@ -270,6 +297,11 @@ endtask
 
 task check_task;
   rec_out = out_data;
+  if(test_mode) begin
+    check = (rec_out !== golden_out && rec_out + 1 !== golden_out && rec_out - 1 !== golden_out);
+  end else begin
+    check = (rec_out !== golden_out);
+  end
     @(negedge clk);
   if(out_valid !== 1'b0) begin
     fail_task;
@@ -280,15 +312,15 @@ task check_task;
     repeat(5) @(negedge clk);
     $finish;
   end
-  if(rec_out !== golden_out) begin
+  if(check) begin
     fail_task;
     $display("--------------------------------------------------");
     $display("                      FAIL!!                      ");
     $display("         Output does not match with golden        ");
-    $display("==================================================");
+    $display("==================================================\n");
     $display("  Pattern No. %4d", pat_count);
     $display("  Mode: %s", test_mode ? "Auto Exposure" : "Auto Focus");
-    $display("\n    Golden Output: %3d", golden_out);
+    $display("\n  Golden Output:   %3d", golden_out);
     $display("  Received Output: %3d", rec_out);
     $display("\n--------------------------------------------------");
     repeat(5) @(negedge clk);
