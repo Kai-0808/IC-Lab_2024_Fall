@@ -111,6 +111,7 @@ task read_DRAM_task;
   $readmemh(d_DRAM_p_r, DRAM_r);
   foreach(DRAM[i, j, k, l])
     DRAM[i][j][k][l] = DRAM_r[(i * 3 * 32 * 32) + (j * 32 * 32) + (k * 32) + l + 32'h10000];
+  $display("DRAM Data Path: %s", d_DRAM_p_r);
 endtask
 
 task reset_task;
@@ -167,33 +168,33 @@ task ans_gen_task;
     1'b0: begin
       // Auto Focus
       foreach(gray_pic[i, j])
-        gray_pic[i][j] = (pic[0][i][j] >> 2) + (pic[1][i][j] >> 1) + (pic[2][i][j] >> 2);
+          gray_pic[i][j] = (pic[0][i][j] >> 2) + (pic[1][i][j] >> 1) + (pic[2][i][j] >> 2);
       contrast2 = 0;
       contrast4 = 0;
       contrast6 = 0;
-      foreach(gray_pic[i, j]) begin
-        if(i >= 15 && i <= 16 && j >= 15 && j <= 16) begin
-          if(i != 16)
-            contrast2 = contrast2 + diff(gray_pic[i][j], gray_pic[i + 1][j]);
-          if(j != 16)
-            contrast2 = contrast2 + diff(gray_pic[i][j], gray_pic[i][j + 1]);
-        end
-        if(i >= 14 && i <= 17 && j >= 14 && j <= 17) begin
-          if(i != 17)
-            contrast4 = contrast4 + diff(gray_pic[i][j], gray_pic[i + 1][j]);
-          if(j != 17)
-            contrast4 = contrast4 + diff(gray_pic[i][j], gray_pic[i][j + 1]);
-        end
-        if(i >= 13 && i <= 18 && j >= 13 && j <= 18) begin
+      for(i = 13; i <= 18; i = i + 1) begin
+        for(j = 13; j <= 18; j = j + 1) begin
+          if(i >= 15 && i <= 16 && j >= 15 && j <= 16) begin
+            if(i != 16)
+              contrast2 = contrast2 + diff(gray_pic[i][j], gray_pic[i + 1][j]);
+            if(j != 16)
+              contrast2 = contrast2 + diff(gray_pic[i][j], gray_pic[i][j + 1]);
+          end
+          if(i >= 14 && i <= 17 && j >= 14 && j <= 17) begin
+            if(i != 17)
+              contrast4 = contrast4 + diff(gray_pic[i][j], gray_pic[i + 1][j]);
+            if(j != 17)
+              contrast4 = contrast4 + diff(gray_pic[i][j], gray_pic[i][j + 1]);
+          end
           if(i != 18)
             contrast6 = contrast6 + diff(gray_pic[i][j], gray_pic[i + 1][j]);
           if(j != 18)
             contrast6 = contrast6 + diff(gray_pic[i][j], gray_pic[i][j + 1]);
         end
       end
-      contrast2 = contrast2 / 4;
-      contrast4 = contrast4 / 16;
-      contrast6 = contrast6 / 36;
+      contrast2 = contrast2 / 'd4;
+      contrast4 = contrast4 / 'd16;
+      contrast6 = contrast6 / 'd36;
       if(contrast2 >= contrast4 && contrast2 >= contrast6)
         golden_out = 8'h00;
       else if(contrast4 >= contrast2 && contrast4 >= contrast6)
@@ -236,7 +237,37 @@ task ans_gen_task;
     $fdisplay(f_debug, "Gray Picture");
     print_array(f_debug, gray_pic, ~test_mode);
     if(test_mode == 0) begin
-      $fdisplay(f_debug, "Contrast 2x2: %3d", contrast2);
+      $fdisplay(f_debug, "Row Difference:");
+      $fwrite(f_debug, "    ");
+      for(i = 13; i <= 18; i = i + 1)
+        $fwrite(f_debug, "%3d ", i);
+      $fwrite(f_debug, "\n----");
+      for(i = 13; i <= 18; i = i + 1)
+        $fwrite(f_debug, "----");
+      $fwrite(f_debug, "\n");
+      for(i = 13; i < 18; i = i + 1) begin
+        $fwrite(f_debug, "%2d| ", i);
+        for(j = 13; j <= 18; j = j + 1) begin
+          $fwrite(f_debug, "%3d ", diff(gray_pic[i][j], gray_pic[i + 1][j]));
+        end
+        $fwrite(f_debug, "\n");
+      end
+      $fdisplay(f_debug, "\nColumn Difference:");
+      $fwrite(f_debug, "    ");
+      for(i = 13; i < 18; i = i + 1)
+        $fwrite(f_debug, "%3d ", i);
+      $fwrite(f_debug, "\n----");
+      for(i = 13; i < 18; i = i + 1)
+        $fwrite(f_debug, "----");
+      $fwrite(f_debug, "\n");
+      for(i = 13; i <= 18; i = i + 1) begin
+        $fwrite(f_debug, "%2d| ", i);
+        for(j = 13; j < 18; j = j + 1) begin
+          $fwrite(f_debug, "%3d ", diff(gray_pic[i][j], gray_pic[i][j + 1]));
+        end
+        $fwrite(f_debug, "\n");
+      end
+      $fdisplay(f_debug, "\nContrast 2x2: %3d", contrast2);
       $fdisplay(f_debug, "Contrast 4x4: %3d", contrast4);
       $fdisplay(f_debug, "Contrast 6x6: %3d", contrast6);
     end
@@ -248,7 +279,7 @@ endtask
 function integer diff;
   input reg [7:0] a, b;
   begin
-    diff = (a > b) ? (a - b) : (b - a);
+    diff = (a >= b) ? (a - b) : (b - a);
   end
 endfunction
 
@@ -298,7 +329,7 @@ endtask
 task check_task;
   rec_out = out_data;
   if(test_mode) begin
-    check = (rec_out !== golden_out && rec_out + 1 !== golden_out && rec_out - 1 !== golden_out);
+    check = (rec_out !== golden_out && rec_out !== golden_out + 1 && rec_out !== golden_out - 1);
   end else begin
     check = (rec_out !== golden_out);
   end
