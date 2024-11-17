@@ -1,0 +1,13 @@
+mkdir -p logs
+
+for i in {0..9}; do
+    make vcs_rtl define=D$i | tee logs/vcs_d$i.log
+done
+
+for i in {0..9}; do
+    if grep -i -q 'FAIL' "logs/vcs_d$i.log"; then
+        echo -e "\033[31m--- DRAM$i RTL Test FAILED ---\033[0m"
+    else
+        echo -e "\033[32m--- DRAM$i RTL Test PASSED ---\033[0m"
+    fi
+done
