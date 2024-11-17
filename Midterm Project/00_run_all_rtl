@@ -1,13 +1,30 @@
+#!/bin/bash
+# Run all RTL simulations for DRAM data files "dram0.dat" to "dram9.dat"
+# Make sure all files are replaced with files in GitHub repository
+# Usage: ./00_run_all_rtl
+# Note: If you get a permission denied error, run "chmod +x ./00_run_all_rtl"
+#       If the script runs with errors, run "dos2unix ./00_run_all_rtl"
+# Appendix: To run only a specific DRAM data file, run "./01_run_vcs_rtl Dx"
+#           where x is the DRAM data file number (0 to 9)
+#           For no argument specified, it defaults to running "dram0.dat"
+
 mkdir -p logs
 
+# Loop through defines D0 to D9
 for i in {0..9}; do
-    make vcs_rtl define=D$i | tee logs/vcs_d$i.log
+    define="D${i}"
+    echo "Running simulation for define: $define"
+    
+    # Run make command with the current define
+    make vcs_rtl define=$define | tee logs/vcs_$define.log
+    
+    # Check if the make command succeeded
+    if [ $? -ne 0 ]; then
+        echo "Simulation failed for define: $define"
+        exit 1
+    fi
+
+    echo "Simulation completed for define: $define"
 done
 
-for i in {0..9}; do
-    if grep -i -q 'FAIL' "logs/vcs_d$i.log"; then
-        echo -e "\033[31m--- DRAM$i RTL Test FAILED ---\033[0m"
-    else
-        echo -e "\033[32m--- DRAM$i RTL Test PASSED ---\033[0m"
-    fi
-done
+echo "All simulations completed successfully!"

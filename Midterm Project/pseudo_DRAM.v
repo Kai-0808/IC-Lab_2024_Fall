@@ -34,6 +34,7 @@
 `else
   `define d_DRAM_p_r "../00_TESTBED/DRAM/dram0.dat"
 `endif
+
 `define d_DRAM_R_LAT 200
 `define d_DRAM_W_LAT 1
 `define d_RANDOM_R_LAT 1
