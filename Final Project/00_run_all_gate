@@ -1,0 +1,42 @@
+#!/bin/bash
+# Run all RTL simulations for DRAM data files "dram0.dat" to "dram9.dat"
+# Make sure all files are replaced with files in GitHub repository
+# Usage: ./00_run_all_gate
+# Note: If you get a permission denied error, run "chmod +x ./00_run_all_gate"
+#       If the script runs with errors, run "dos2unix ./00_run_all_gate"
+# Appendix: To run only a specific DRAM data file, run "./01_run_vcs_gate Dx"
+#           where x is the DRAM data file number (0 to 9)
+#           For no argument specified, it defaults to running "dram0.dat"
+
+mkdir -p logs
+
+# Loop through defines D0 to D9
+for i in {0..9}; do
+  define="D${i}"
+  echo
+  echo "Running simulation for define: $define"
+  echo
+
+  # Run make command with the current define
+  make vcs_gate define=$define | tee logs/vcs_$define.log
+
+  # Check if "FAIL" appears in the log file after the simulation completes
+  if grep -q "FAIL" logs/vcs_$define.log; then
+    echo
+    echo "Detected FAIL in simulation log for define: $define"
+    echo
+    exit 1
+  fi
+
+  # Check if the make command succeeded
+  if [ $? -ne 0 ]; then
+    echo
+    echo "Simulation failed for define: $define"
+    echo
+    exit 1
+  fi
+done
+
+echo
+echo "All simulations completed successfully without errors!"
+echo
